@@ -1,0 +1,88 @@
+1. TERRAFORM RESOURCES
+aws_vpc.main
+aws_subnet.public
+aws_internet_gateway.main
+aws_route_table.public
+aws_route_table_association.public
+aws_key_pair.main
+aws_security_group.app
+aws_security_group.db
+aws_instance.app
+aws_instance.db
+aws_ebs_volume.app_data
+aws_ebs_volume.db_data
+aws_volume_attachment.app_data
+aws_volume_attachment.db_data
+
+2. TERRAFORM VARIABLES
+region
+my_ip
+key_name
+public_key_path
+instance_type
+project_name
+
+3. TERRAFORM OUTPUTS
+app_public_ip
+app_private_ip
+db_public_ip
+db_private_ip
+
+4. SSH KEY
+~/.ssh/devops_lab
+~/.ssh/devops_lab.pub
+ubuntu
+
+5. ANSIBLE INVENTORY
+groups: app, db
+host vars: ansible_host, ansible_user, ansible_ssh_private_key_file
+app group var: db_host
+file: ansible/inventory.ini
+
+6. DATABASE
+db_name: notesdb
+db_user: notes_user
+db_port: 5432
+image: postgres:16
+container: postgres
+volume: postgres_data
+
+7. APP AND NGINX
+image: notes-app
+services: app, nginx
+app port: 8000 (unpublished)
+nginx port: 80
+network: app_net
+env vars: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+
+8. VAULT
+vault_db_password
+vault_postgres_password
+ansible/group_vars/all/vault.yml
+.vault_pass
+
+9. ANSIBLE ROLE VARIABLES
+postgres_image
+postgres_data_dir
+postgres_compose_dir
+app_compose_dir
+backup_dir
+backup_retention_days
+
+10. BACKUP
+dir: /var/backups/postgres
+file: notes_YYYYMMDD_HHMMSS.dump
+scripts: pg_backup.sh, pg_restore.sh
+table: notes (id, title, body, created_at)
+
+11. SCRIPTS
+scripts/deploy.sh
+scripts/generate_inventory.sh
+ansible/site.yml
+
+12. COMMIT PREFIXES
+terraform:
+ansible:
+docker:
+scripts:
+docs:
