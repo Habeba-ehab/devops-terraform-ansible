@@ -17,6 +17,7 @@ devops_lab.pub
 # Generated files
 ansible/inventory.ini
 *.retry
+__pycache__/
 
 # OS / editor
 .DS_Store
