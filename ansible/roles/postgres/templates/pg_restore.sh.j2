@@ -1,8 +1,14 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-LATEST_BACKUP=$(ls -t {{ backup_dir }}/notes_*.dump | head -n 1)
+LATEST_BACKUP="${1:-$(ls -t {{ backup_dir }}/notes_*.dump 2>/dev/null | head -n 1 || true)}"
 
-echo "Restoring database from $LATEST_BACKUP..."
-docker exec -i postgres psql -U postgres -d {{ db_name }} < "$LATEST_BACKUP"
-echo "Restore finished."
+if [[ -z "${LATEST_BACKUP}" || ! -f "${LATEST_BACKUP}" ]]; then
+  echo "Error: No backup file found in {{ backup_dir }}" >&2
+  exit 1
+fi
+
+echo "Restoring database {{ db_name }} from ${LATEST_BACKUP}..."
+docker exec -i {{ postgres_container_name }} pg_restore   -U {{ db_user }}   -d {{ db_name }}   --clean   --if-exists   --no-owner   --no-privileges   --exit-on-error   --single-transaction < "${LATEST_BACKUP}"
+
+echo "Restore finished successfully."

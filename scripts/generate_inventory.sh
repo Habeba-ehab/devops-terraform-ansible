@@ -1,5 +1,8 @@
 #!/bin/bash
-set -e
+set -euo pipefail
+
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${PROJECT_DIR}"
 
 APP_IP=$(terraform -chdir=terraform output -raw app_public_ip)
 DB_IP=$(terraform -chdir=terraform output -raw db_public_ip)
