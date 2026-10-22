@@ -1,4 +1,3 @@
-
 import os
 import time
 
@@ -53,7 +52,13 @@ def initialize_database():
 
 @app.get("/health")
 def health():
-    return jsonify({"status": "ok"}), 200
+    try:
+        with get_db_connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1;")
+        return jsonify({"status": "ok"}), 200
+    except psycopg2.Error:
+        return jsonify({"status": "error", "detail": "Database unavailable"}), 503
 
 
 @app.get("/notes")
@@ -72,8 +77,10 @@ def get_notes():
 def create_note():
     data = request.get_json(silent=True)
 
-    if not data or not isinstance(data.get("title"), str) or not isinstance(
-        data.get("body"), str
+    if (
+        not isinstance(data, dict)
+        or not isinstance(data.get("title"), str)
+        or not isinstance(data.get("body"), str)
     ):
         return jsonify({"error": "Both title and body are required."}), 400
 
