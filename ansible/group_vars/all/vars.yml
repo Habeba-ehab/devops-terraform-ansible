@@ -1,0 +1,11 @@
+---
+db_name: notesdb
+db_user: notes_user
+db_port: 5432
+postgres_container_name: postgres
+
+data_device: /dev/nvme1n1
+data_mount_point: /data
+
+db_password: "{{ vault_db_password }}"
+postgres_password: "{{ vault_postgres_password }}"
