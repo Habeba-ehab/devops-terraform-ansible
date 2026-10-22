@@ -1,18 +1,26 @@
 ---
-- name: Install Docker on all hosts
+- name: Prepare all servers
   hosts: all
   become: true
+  gather_facts: false
+  pre_tasks:
+    - name: Wait until SSH is ready
+      ansible.builtin.wait_for_connection:
+        timeout: 300
+    - name: Gather facts
+      ansible.builtin.setup:
   roles:
+    - storage
     - docker
 
-- name: Deploy PostgreSQL and backups on DB host
+- name: Database server
   hosts: db
   become: true
   roles:
     - postgres
     - backup
 
-- name: Deploy App and Nginx on App host
+- name: Application server
   hosts: app
   become: true
   roles:
