@@ -9,14 +9,10 @@ services:
     ports:
       - "{{ ansible_default_ipv4.address }}:{{ db_port }}:5432"
     volumes:
-      - postgres_data:{{ postgres_data_dir }}
+      - "{{ data_mount_point }}/postgres:/var/lib/postgresql/data"
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-volumes:
-  postgres_data:
-    name: postgres_data

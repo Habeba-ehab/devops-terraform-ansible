@@ -4,17 +4,21 @@
     state: directory
     mode: "0755"
 
-- name: Create backup directory
+- name: Create Postgres data directory on the data disk
   file:
-    path: "{{ backup_dir }}"
+    path: "{{ data_mount_point }}/postgres"
     state: directory
-    mode: "0755"
+    owner: "999"
+    group: "999"
+    mode: "0700"
 
 - name: Template init.sql
   template:
     src: init.sql.j2
     dest: "{{ postgres_compose_dir }}/init.sql"
-    mode: "0600"
+    owner: "999"
+    group: "999"
+    mode: "0400"
 
 - name: Template docker-compose.yml
   template:
