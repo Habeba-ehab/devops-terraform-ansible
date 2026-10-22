@@ -1,0 +1,3 @@
+postgres_image: "postgres:16"
+postgres_data_dir: "/var/lib/postgresql/data"
+postgres_compose_dir: "/opt/postgres"
