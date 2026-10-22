@@ -1,0 +1,30 @@
+---
+- name: Install cron
+  ansible.builtin.apt:
+    name: cron
+    state: present
+    lock_timeout: 120
+
+- name: Create PostgreSQL backup directory
+  ansible.builtin.file:
+    path: "{{ backup_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Install PostgreSQL backup script
+  ansible.builtin.template:
+    src: pg_backup.sh.j2
+    dest: /usr/local/bin/pg_backup.sh
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Install daily PostgreSQL backup schedule
+  ansible.builtin.cron:
+    name: "Daily PostgreSQL backup"
+    minute: "0"
+    hour: "2"
+    job: "/usr/local/bin/pg_backup.sh >> /var/log/pg_backup.log 2>&1"
+    user: root
