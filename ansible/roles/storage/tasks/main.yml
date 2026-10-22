@@ -1,0 +1,20 @@
+---
+- name: Create a filesystem on the data disk (skipped if one already exists)
+  community.general.filesystem:
+    fstype: ext4
+    dev: "{{ data_device }}"
+    opts: "-L data"
+
+- name: Create the mount point directory
+  ansible.builtin.file:
+    path: "{{ data_mount_point }}"
+    state: directory
+    mode: "0755"
+
+- name: Mount the data disk and keep it mounted after reboot
+  ansible.posix.mount:
+    path: "{{ data_mount_point }}"
+    src: LABEL=data
+    fstype: ext4
+    opts: defaults,nofail
+    state: mounted
