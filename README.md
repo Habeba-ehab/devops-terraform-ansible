@@ -26,11 +26,13 @@ An automated two-host AWS deployment that provisions cloud infrastructure with *
 ├── ansible/
 │   ├── ansible.cfg                        # Ansible defaults, SSH pipelining, Vault password path
 │   ├── inventory.ini                      # Generated automatically from Terraform outputs (gitignored)
+│   ├── requirements.yml                   # Required Ansible collections (community.docker, community.general, ansible.posix)
 │   ├── site.yml                           # Main playbook (storage, docker, postgres, backup, app)
 │   ├── restore.yml                        # Playbook to restore PostgreSQL from the latest backup
 │   ├── group_vars/all/
 │   │   ├── vars.yml                       # Non-sensitive shared variables and device paths
-│   │   └── vault.yml                      # Ansible Vault encrypted database credentials (AES-256)
+│   │   ├── vault.yml.example              # Template with placeholder credentials
+│   │   └── vault.yml                      # Ansible Vault encrypted database credentials (AES-256, gitignored)
 │   └── roles/
 │       ├── storage/                       # Formats and mounts attached EBS volume at /data
 │       ├── docker/                        # Installs Docker Engine, Compose plugin, enables on boot
@@ -43,7 +45,7 @@ An automated two-host AWS deployment that provisions cloud infrastructure with *
 │   ├── requirements.txt                   # Pinned Flask (3.1.2) and psycopg2-binary (2.9.10)
 │   └── .dockerignore
 ├── scripts/
-│   ├── deploy.sh                          # End-to-end workflow: Terraform -> Inventory -> Ansible
+│   ├── deploy.sh                          # End-to-end workflow: Preflight -> Terraform -> Inventory -> Ansible
 │   └── generate_inventory.sh              # Populates ansible/inventory.ini from Terraform outputs
 └── terraform/
     ├── main.tf                            # AWS provider (~> 6.0) and default resource tags
@@ -63,7 +65,7 @@ Ensure the following tools and credentials are configured on your local machine 
 2. **Terraform**: Version `>= 1.5` installed.
 3. **Ansible**: `ansible-core` installed along with the required Galaxy collections:
    ```bash
-   ansible-galaxy collection install community.docker community.general ansible.posix
+   ansible-galaxy collection install -r ansible/requirements.yml
    ```
 4. **SSH Key Pair**: An SSH key pair located at `~/.ssh/devops_lab` and `~/.ssh/devops_lab.pub` (the default paths in `terraform/variables.tf` and `ansible/ansible.cfg`). Generate one if needed:
    ```bash
@@ -85,20 +87,17 @@ echo "my_ip = \"$(curl -s https://checkip.amazonaws.com)/32\"" > terraform/terra
 
 `ansible/ansible.cfg` reads the Vault password from `.vault_pass` in the repository root (which is excluded from Git via `.gitignore`).
 
-Create your `.vault_pass` file and encrypt your database credentials in `ansible/group_vars/all/vault.yml`:
+Create your `.vault_pass` file and encrypt your database credentials:
 
 ```bash
 # 1. Create your local Vault password file
 echo "your-strong-vault-password" > .vault_pass
 chmod 600 .vault_pass
 
-# 2. Write and encrypt your PostgreSQL credentials into ansible/group_vars/all/vault.yml
-cat << 'EOF' > ansible/group_vars/all/vault.yml
----
-vault_db_password: "ChangeMe_AppDbPassword123!"
-vault_postgres_password: "ChangeMe_PostgresRoot123!"
-EOF
+# 2. Copy the template vault file
+cp ansible/group_vars/all/vault.yml.example ansible/group_vars/all/vault.yml
 
+# 3. Encrypt vault.yml using your vault password
 ansible-vault encrypt ansible/group_vars/all/vault.yml --vault-password-file .vault_pass
 ```
 
@@ -112,9 +111,10 @@ Execute the deployment script from the repository root:
 
 What `./scripts/deploy.sh` performs automatically:
 
-1. **Infrastructure Provisioning**: Runs `terraform -chdir=terraform init` and `terraform -chdir=terraform apply -auto-approve` to create the VPC (`10.0.0.0/16`), public subnet (`10.0.1.0/24`), internet gateway, route table, separate security groups (`app-sg` and `db-sg`), two Ubuntu 24.04 `t3.micro` EC2 instances, and their attached 10 GB `gp3` EBS volumes.
-2. **Dynamic Inventory Generation**: Runs `./scripts/generate_inventory.sh`, which queries `terraform output` (`app_public_ip`, `db_public_ip`, `db_private_ip`) and generates `ansible/inventory.ini` with `db_host` mapped to the database host's private IP.
-3. **Configuration & Container Deployment**: Runs `ansible-playbook site.yml`, which:
+1. **Preflight Checks**: Validates that `.vault_pass`, `ansible/group_vars/all/vault.yml`, `terraform/terraform.tfvars`, and SSH keys (`~/.ssh/devops_lab*`) exist, and ensures Ansible collections are installed *before* creating cloud resources to prevent failed deployments after spending money on AWS.
+2. **Infrastructure Provisioning**: Runs `terraform -chdir=terraform init` and `terraform -chdir=terraform apply -auto-approve` to create the VPC (`10.0.0.0/16`), public subnet (`10.0.1.0/24`), internet gateway, route table, separate security groups (`app-sg` and `db-sg`), two Ubuntu 24.04 `t3.micro` EC2 instances, and their attached 10 GB `gp3` EBS volumes.
+3. **Dynamic Inventory Generation**: Runs `./scripts/generate_inventory.sh`, which queries `terraform output` (`app_public_ip`, `db_public_ip`, `db_private_ip`) and generates `ansible/inventory.ini` with `db_host` mapped to the database host's private IP.
+4. **Configuration & Container Deployment**: Runs `ansible-playbook site.yml`, which:
    - Waits for SSH connectivity and `cloud-init` completion on both hosts.
    - Formats the attached EBS volume (`/dev/nvme1n1`) as `ext4` (`LABEL=data`) and mounts it persistently at `/data` in `/etc/fstab`.
    - Installs Docker Engine and the Docker Compose v2 plugin and enables `docker.service` on boot.
@@ -213,7 +213,6 @@ terraform -chdir=terraform destroy -auto-approve
 - **HTTP Only (No TLS)**: Nginx listens on port `80` over plain HTTP because no domain name or TLS certificate is provisioned for this lab environment.
 - **Public Subnet for Database Host**: As permitted by the assignment specification, both EC2 instances reside in a public subnet so Ansible can reach them directly via SSH (`var.my_ip/32`) and download apt/Docker packages without incurring NAT Gateway costs. PostgreSQL port `5432` remains completely inaccessible from the internet via both Security Group rules (`app-sg` only) and private IP socket binding (`<db_private_ip>:5432`).
 - **Local Host Backups**: Daily `pg_dump` backups are written to `/var/backups/postgres` on the DB host's root EBS volume (separate from the `/data` EBS volume housing live PostgreSQL data). In production, backups would also be replicated off-host to Amazon S3.
-
 
 ## Attribution & External Components
 
