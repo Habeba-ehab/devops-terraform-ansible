@@ -5,6 +5,12 @@
     state: present
     lock_timeout: 120
 
+- name: Ensure cron service is started and enabled on boot
+  ansible.builtin.systemd:
+    name: cron
+    state: started
+    enabled: true
+
 - name: Create PostgreSQL backup directory
   ansible.builtin.file:
     path: "{{ backup_dir }}"
