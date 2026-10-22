@@ -1,4 +1,6 @@
-app_image: "notes-app"
+---
+app_image: "notes-app:1.0.0"
+nginx_image: "nginx:1.27.4-alpine"
 app_port: 8000
 app_compose_dir: "/opt/app"
 

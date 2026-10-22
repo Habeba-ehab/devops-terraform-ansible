@@ -1,36 +1,40 @@
+---
 - name: Create app compose directory
-  file:
+  ansible.builtin.file:
     path: "{{ app_compose_dir }}"
     state: directory
     mode: "0755"
 
 - name: Copy app folder to server
-  copy:
+  ansible.builtin.copy:
     src: "{{ playbook_dir }}/../app/"
     dest: "{{ app_compose_dir }}/app/"
+  register: app_source
 
 - name: Build app Docker image
   community.docker.docker_image:
     name: "{{ app_image }}"
     source: build
+    force_source: "{{ app_source.changed }}"
     build:
       path: "{{ app_compose_dir }}/app"
     state: present
 
 - name: Template nginx.conf
-  template:
+  ansible.builtin.template:
     src: nginx.conf.j2
     dest: "{{ app_compose_dir }}/nginx.conf"
     mode: "0644"
+  register: nginx_config
 
 - name: Template docker-compose.yml
-  template:
+  ansible.builtin.template:
     src: docker-compose.yml.j2
     dest: "{{ app_compose_dir }}/docker-compose.yml"
     mode: "0600"
 
 - name: Wait for Postgres on DB host to be ready
-  wait_for:
+  ansible.builtin.wait_for:
     host: "{{ db_host }}"
     port: "{{ db_port }}"
     timeout: 60
@@ -39,3 +43,13 @@
   community.docker.docker_compose_v2:
     project_src: "{{ app_compose_dir }}"
     state: present
+    recreate: "{{ 'always' if (app_source.changed or nginx_config.changed) else 'auto' }}"
+
+- name: Wait for application HTTP health endpoint through Nginx
+  ansible.builtin.uri:
+    url: "http://127.0.0.1/health"
+    status_code: 200
+  register: app_health
+  until: app_health.status == 200
+  retries: 15
+  delay: 2
