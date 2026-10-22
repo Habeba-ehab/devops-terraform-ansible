@@ -13,6 +13,8 @@ devops_lab
 devops_lab.pub
 .vault_pass
 .env
+vault.yml
+ansible/group_vars/all/vault.yml
 
 # Generated files
 ansible/inventory.ini
