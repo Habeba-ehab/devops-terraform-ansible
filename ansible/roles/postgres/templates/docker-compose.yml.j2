@@ -1,19 +1,18 @@
 services:
   postgres:
-    image: {{ postgres_image }}
+    image: "{{ postgres_image }}"
     container_name: postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: "{{ db_name }}"
-      POSTGRES_USER: "{{ db_user }}"
-      POSTGRES_PASSWORD: "{{ db_password }}"
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "{{ vault_postgres_password }}"
     ports:
       - "{{ ansible_default_ipv4.address }}:{{ db_port }}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - postgres_data:{{ postgres_data_dir }}
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U {{ db_user }} -d {{ db_name }}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -21,4 +20,3 @@ services:
 volumes:
   postgres_data:
     name: postgres_data
-    

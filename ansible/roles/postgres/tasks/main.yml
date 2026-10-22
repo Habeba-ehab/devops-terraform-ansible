@@ -1,89 +1,42 @@
-- name: Create Docker Compose project directory
+- name: Create Postgres compose directory
   file:
-    path: "{{ db_compose_dir }}"
+    path: "{{ postgres_compose_dir }}"
     state: directory
-    owner: root
-    group: root
     mode: "0755"
 
 - name: Create backup directory
   file:
     path: "{{ backup_dir }}"
     state: directory
-    owner: root
-    group: root
     mode: "0755"
-
-- name: Template Docker Compose file for PostgreSQL
-  template:
-    src: docker-compose.yml.j2
-    dest: "{{ db_compose_dir }}/docker-compose.yml"
-    owner: root
-    group: root
-    mode: "0640"
-  register: compose_template
-
-- name: Start PostgreSQL with Docker Compose
-  community.docker.docker_compose_v2:
-    project_src: "{{ db_compose_dir }}"
-    state: present
-  register: compose_result
-
-- name: Wait for PostgreSQL to be healthy
-  command: >
-    docker inspect --format='{{ '{{' }}.State.Health.Status{{ '}}' }}' postgres
-  register: pg_health
-  until: pg_health.stdout == "healthy"
-  retries: 30
-  delay: 5
-  changed_when: false
-
-- name: Check if application database user exists
-  community.docker.docker_container_exec:
-    container: postgres
-    command: >
-      psql -U postgres -tAc
-      "SELECT 1 FROM pg_roles WHERE rolname='{{ db_user }}'"
-  register: user_check
-  changed_when: false
-
-- name: Create application database user
-  community.docker.docker_container_exec:
-    container: postgres
-    command: >
-      psql -U postgres -c
-      "CREATE USER {{ db_user }} WITH PASSWORD '{{ db_password }}';"
-  when: user_check.stdout != "1"
-
-- name: Check if application database exists
-  community.docker.docker_container_exec:
-    container: postgres
-    command: >
-      psql -U postgres -tAc
-      "SELECT 1 FROM pg_database WHERE datname='{{ db_name }}'"
-  register: db_check
-  changed_when: false
-
-- name: Create application database
-  community.docker.docker_container_exec:
-    container: postgres
-    command: >
-      psql -U postgres -c
-      "CREATE DATABASE {{ db_name }} OWNER {{ db_user }};"
-  when: db_check.stdout != "1"
-
-- name: Grant all privileges to application user on database
-  community.docker.docker_container_exec:
-    container: postgres
-    command: >
-      psql -U postgres -c
-      "GRANT ALL PRIVILEGES ON DATABASE {{ db_name }} TO {{ db_user }};"
-  changed_when: false
 
 - name: Template init.sql
   template:
     src: init.sql.j2
-    dest: /opt/postgres/init.sql
-    owner: ubuntu
-    group: ubuntu
-    mode: "0644"
+    dest: "{{ postgres_compose_dir }}/init.sql"
+    mode: "0600"
+
+- name: Template docker-compose.yml
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ postgres_compose_dir }}/docker-compose.yml"
+    mode: "0600"
+
+- name: Template restore script
+  template:
+    src: pg_restore.sh.j2
+    dest: /usr/local/bin/pg_restore.sh
+    mode: "0755"
+
+- name: Start Postgres container
+  community.docker.docker_compose_v2:
+    project_src: "{{ postgres_compose_dir }}"
+    state: present
+
+- name: Wait for Postgres container to be healthy
+  command: docker inspect --format='{{ '{{' }}.State.Health.Status{{ '}}' }}' postgres
+  register: pg_health
+  until: pg_health.stdout == "healthy"
+  retries: 20
+  delay: 3
+  changed_when: false

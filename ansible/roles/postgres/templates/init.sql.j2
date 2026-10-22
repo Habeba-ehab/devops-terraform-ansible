@@ -1,4 +1,12 @@
+CREATE USER {{ db_user }} WITH PASSWORD '{{ vault_db_password }}';
+CREATE DATABASE {{ db_name }} OWNER {{ db_user }};
+\c {{ db_name }}
+
 CREATE TABLE IF NOT EXISTS notes (
     id SERIAL PRIMARY KEY,
-    title VARCHAR(200) NOT NULL
+    title VARCHAR(200) NOT NULL,
+    body TEXT DEFAULT '',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE notes OWNER TO {{ db_user }};

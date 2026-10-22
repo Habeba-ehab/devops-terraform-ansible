@@ -1,41 +1,41 @@
-- name: Create Docker Compose project directory
+- name: Create app compose directory
   file:
     path: "{{ app_compose_dir }}"
     state: directory
-    owner: root
-    group: root
     mode: "0755"
-- name: Template Docker Compose file for application
-  template:
-    src: docker-compose.yml.j2
-    dest: "{{ app_compose_dir }}/docker-compose.yml"
-    owner: root
-    group: root
-    mode: "0640"
-- name: Template Nginx configuration
-  template:
-    src: nginx.conf.j2
-    dest: "{{ app_compose_dir }}/nginx.conf"
-    owner: root
-    group: root
-    mode: "0644"
-- name: Build application image from Dockerfile
+
+- name: Copy app folder to server
+  copy:
+    src: "{{ playbook_dir }}/../app/"
+    dest: "{{ app_compose_dir }}/app/"
+
+- name: Build app Docker image
   community.docker.docker_image:
     name: "{{ app_image }}"
     source: build
     build:
-      path: "{{ app_compose_dir }}"
+      path: "{{ app_compose_dir }}/app"
     state: present
-  when: app_build_enabled | default(false)
-- name: Start application with Docker Compose
+
+- name: Template nginx.conf
+  template:
+    src: nginx.conf.j2
+    dest: "{{ app_compose_dir }}/nginx.conf"
+    mode: "0644"
+
+- name: Template docker-compose.yml
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ app_compose_dir }}/docker-compose.yml"
+    mode: "0600"
+
+- name: Wait for Postgres on DB host to be ready
+  wait_for:
+    host: "{{ db_host }}"
+    port: "{{ db_port }}"
+    timeout: 60
+
+- name: Start app and Nginx with Docker Compose
   community.docker.docker_compose_v2:
     project_src: "{{ app_compose_dir }}"
     state: present
-- name: Wait for application to be healthy
-  uri:
-    url: "http://localhost:80/"
-    status_code: 200
-  register: app_health
-  until: app_health.status == 200
-  retries: 30
-  delay: 5
