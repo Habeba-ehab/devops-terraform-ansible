@@ -1,0 +1,11 @@
+- name: Restore PostgreSQL database from latest backup
+  hosts: db
+  become: true
+  tasks:
+    - name: Run restore script
+      command: /usr/local/bin/pg_restore.sh
+      register: restore_result
+
+    - name: Show restore output
+      debug:
+        var: restore_result.stdout_lines

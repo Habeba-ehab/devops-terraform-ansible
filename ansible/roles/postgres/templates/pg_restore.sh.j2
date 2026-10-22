@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+
+LATEST_BACKUP=$(ls -t {{ backup_dir }}/notes_*.dump | head -n 1)
+
+echo "Restoring database from $LATEST_BACKUP..."
+docker exec -i postgres psql -U postgres -d {{ db_name }} < "$LATEST_BACKUP"
+echo "Restore finished."
